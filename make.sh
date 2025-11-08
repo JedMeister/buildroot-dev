@@ -4,6 +4,7 @@
 RELEASE=${RELEASE:-}
 FAB_ARCH=${FAB_ARCH:-}
 FAB_PATH=${FAB_PATH:-}
+[[ -z "$DEBUG" ]] || set -x
 
 # fail on unset vars from here
 set -u
@@ -36,10 +37,11 @@ Options:
                     \$FAB_PATH/buildroots/dev-\$(basename \$RELEASE)-\$FAB_ARCH
                     - must not exists; unless -f|--force
     -f|--force      delete build &/or output directories if they exist
+                    (overrides -u|--use-existing)
     -k|--keep       keep build/ directory after successful build
     -u|--use-existing
-                    use existing build/ dir (if it exists) - useful for testing
-                    development of this tool
+                    use existing build and output dirs (ignore if doesn't
+                    exist) - useful for testing/development of this tool
 
 Env vars:
 
@@ -102,13 +104,15 @@ done
 if [[ ! -d "$BUILDROOT" ]]; then
     fatal "buildroot does not exist: $BUILDROOT"
 fi
-if [[ -d "$OUTPUT" ]]; then
+if [[ -f "$OUTPUT/bin/bash" ]] || [[ -f "build/bin/bash" ]]; then
     if [[ -z "$FORCE" ]] && [[ -z "$USE_EXISTING" ]]; then
-        warning "output dir already exists: $OUTPUT"
-        fatal "clear dir or rerun with '--force' or '-use-existing'"
-    else
-        deck -D "$OUTPUT" || true
-        rm -rf "$OUTPUT"
+        warning "build &/or $OUTPUT dir/s already contain files"
+        fatal "clear dir/s or rerun with '--force' or '-use-existing'"
+    elif [[ -n "$FORCE" ]]; then
+        if deck --isdeck build; then
+            deck -D build
+        fi
+        rm -rf build "$OUTPUT"
     fi
 fi
 
@@ -116,19 +120,29 @@ mkdir -p build "$OUTPUT"
 
 readarray -t overlays < overlay
 readarray -t confs < conf
-deck "$BUILDROOT" build/
+if ! deck --isdeck build; then
+    info "decking $BUILDROOT to build/"
+    deck "$BUILDROOT" build/
+fi
 
+info "installing plan"
 fab-install build plan
 for overlay in "${overlays[@]}"; do
-    fab-apply-overlay build "$FAB_PATH/$overlay"
+    overlay="$FAB_PATH/$overlay"
+    info "applying overlay: $overlay"
+    fab-apply-overlay build/ "$overlay"
 done
 for conf in "${confs[@]}"; do
-    fab-chroot --script build "$FAB_PATH/$conf"
+    conf="$FAB_PATH/$conf"
+    info "applying conf: $conf"
+    fab-chroot build/ --script "$conf"
 done
 
+info "rsyncing buildroot to $OUTPUT"
 rsync --delete -Hac build/ "$OUTPUT"/
 
 if [[ -z "$KEEP" ]]; then
+    deck -D build/
     rm -rf build/
 else
     warning "-k|--keep switch detected; not cleaning build/ dir"
