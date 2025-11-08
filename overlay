@@ -1,0 +1,3 @@
+common/overlays/turnkey.d/bashrc
+common/overlays/turnkey.d/profile
+common/overlays/turnkey.d/vim-tiny-config
