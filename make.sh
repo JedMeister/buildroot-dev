@@ -37,6 +37,9 @@ Options:
                     - must not exists; unless -f|--force
     -f|--force      delete build &/or output directories if they exist
     -k|--keep       keep build/ directory after successful build
+    -u|--use-existing
+                    use existing build/ dir (if it exists) - useful for testing
+                    development of this tool
 
 Env vars:
 
@@ -72,6 +75,7 @@ BUILDROOT="$FAB_PATH/buildroots/$(basename "$RELEASE")-$FAB_ARCH"
 OUTPUT="$FAB_PATH/buildroots/dev-$(basename "$RELEASE")-$FAB_ARCH"
 FORCE=
 KEEP=
+USE_EXISTING=
 
 while [[ $# -ne 0 ]]; do
     case $1 in
@@ -87,6 +91,8 @@ while [[ $# -ne 0 ]]; do
             FORCE=y;;
         -k|--keep)
             KEEP=y;;
+        -u|--use-existing)
+            USE_EXISTING=y;;
         *)
             fatal "unknown argument: $1";;
     esac
@@ -96,11 +102,16 @@ done
 if [[ ! -d "$BUILDROOT" ]]; then
     fatal "buildroot does not exist: $BUILDROOT"
 fi
-if [[ -d "$OUTPUT" ]] && [[ -z "$FORCE" ]]; then
-    fatal "output dir already exists: $OUTPUT"
+if [[ -d "$OUTPUT" ]]; then
+    if [[ -z "$FORCE" ]] && [[ -z "$USE_EXISTING" ]]; then
+        warning "output dir already exists: $OUTPUT"
+        fatal "clear dir or rerun with '--force' or '-use-existing'"
+    else
+        deck -D "$OUTPUT" || true
+        rm -rf "$OUTPUT"
+    fi
 fi
 
-rm -rf "$OUTPUT"
 mkdir -p build "$OUTPUT"
 
 readarray -t overlays < overlay
@@ -112,7 +123,7 @@ for overlay in "${overlays[@]}"; do
     fab-apply-overlay build "$FAB_PATH/$overlay"
 done
 for conf in "${confs[@]}"; do
-    fab-chroot --script "$FAB_PATH/$conf"
+    fab-chroot --script build "$FAB_PATH/$conf"
 done
 
 rsync --delete -Hac build/ "$OUTPUT"/
