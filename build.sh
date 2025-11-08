@@ -1,20 +1,20 @@
 #!/bin/bash -e
 
 # initalize env vars before setting -u in case they don't exist
-RELEASE=${RELEASE}
-FAB_ARCH=${FAB_ARCH}
-FAB_PATH=${FAB_PATH}
+RELEASE=${RELEASE:-}
+FAB_ARCH=${FAB_ARCH:-}
+FAB_PATH=${FAB_PATH:-}
 
 # fail on unset vars from here
 set -u
 
 fatal() { echo "FATAL: $*" >&2; exit 1; }
 warning() { echo "WARNING: $*" >&2; }
-info() { echo "INFO: $*" }
+info() { echo "INFO: $*"; }
 
 usage() {
     cat <<EOF
-$(basename $0) [-h] [-b BUILDROOT]
+$(basename "$0") [-h] [-b BUILDROOT]
 
 Generate a "developer friendly" buildroot
 
@@ -68,8 +68,8 @@ if [[ -z "$FAB_ARCH" ]]; then
     warning "FAB_ARCH not set, falling back to system: $FAB_ARCH"
 fi
 
-BUILDROOT="$FAB_PATH/buildroots/$(basename $RELEASE)-$FAB_ARCH"
-OUTPUT="$FAB_PATH/buildroots/dev-$(basename $RELEASE)-$FAB_ARCH"
+BUILDROOT="$FAB_PATH/buildroots/$(basename "$RELEASE")-$FAB_ARCH"
+OUTPUT="$FAB_PATH/buildroots/dev-$(basename "$RELEASE")-$FAB_ARCH"
 FORCE=
 KEEP=
 
@@ -128,7 +128,7 @@ Building dev buildroot completed - output: $OUTPUT/
 
 A common usage scenario is to use it via a "dev pool"; i.e.:
 
-mkdir -p $FAB_PATH/pools/dev-$(basename $RELEASE)-$FAB_ARCH
-cd $FAB_PATH/pools/dev-$(basename $RELEASE)-$FAB_ARCH
+mkdir -p $FAB_PATH/pools/dev-$(basename "$RELEASE")-$FAB_ARCH
+cd $FAB_PATH/pools/dev-$(basename "$RELEASE")-$FAB_ARCH
 pool-init $OUTPUT
 EOF
